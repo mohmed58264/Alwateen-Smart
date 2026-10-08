@@ -1,0 +1,10 @@
+/.git/**
+/server/**
+/wrangler.jsonc
+/DEPLOY.md
+/.assetsignore
+/.dev.vars*
+/.env*
+/.wrangler/**
+/node_modules/**
+/package*.json

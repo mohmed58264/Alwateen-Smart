@@ -1,0 +1,48 @@
+const css=`*{box-sizing:border-box}body{margin:0;background:#f0f6f5;color:#123e45;font:16px/1.8 Tahoma,Arial,sans-serif}main{max-width:1200px;margin:auto;padding:35px 20px}header,.bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:space-between}h1{font-size:28px;margin:4px 0}a{color:#087a81}button,.button{border:0;border-radius:9px;padding:11px 18px;background:#096b72;color:white;cursor:pointer;font:inherit;text-decoration:none}button:disabled{opacity:.5;cursor:wait}.secondary{background:#dceae9;color:#123e45}.danger{background:#a63030}section{background:#fff;border:1px solid #d6e6e3;border-radius:16px;padding:22px;margin:22px 0}input,select{padding:10px;border:1px solid #a8c7c3;border-radius:7px;font:inherit;max-width:100%}input[type=number]{width:110px}label{display:grid;gap:7px}form{display:grid;gap:18px}.login{max-width:460px;margin:10vh auto}.scroll{overflow:auto}table{border-collapse:collapse;width:100%;min-width:780px}th,td{padding:12px 7px;border-bottom:1px solid #e1ece9;text-align:right}td input[type=text]{width:100%;min-width:260px}.notice{background:#e2f2ed;padding:15px;border-radius:10px}#status{position:sticky;top:0;z-index:2;background:#fff7d5;padding:12px;border-radius:10px}#status:empty{display:none}.tools{display:flex;gap:10px;flex-wrap:wrap}#add-form{grid-template-columns:2fr 1fr 1fr auto;align-items:end}.muted{color:#5c7679;font-size:14px}@media(max-width:650px){#add-form{grid-template-columns:1fr}header{display:block}h1{font-size:24px}section{padding:15px}}`;
+function frame(body,script=false){return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>إدارة الوتين الذكي</title><link rel="stylesheet" href="/admin/style.css">${script?'<script src="/admin/app.js" defer></script>':''}</head><body>${body}</body></html>`;}
+const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export const styles=css;
+export const loginPage=(message='')=>frame(`<main class="login"><section><p>مؤسسة الوتين الذكي</p><h1>دخول الإدارة</h1><p role="alert">${escape(message)}</p><form method="post" action="/admin/login"><label>اسم المستخدم<input name="username" autocomplete="username" required maxlength="100"></label><label>كلمة المرور<input name="password" type="password" autocomplete="current-password" required maxlength="200"></label><button>دخول</button></form><p><a href="/">العودة للموقع</a></p></section></main>`);
+export const adminPage=frame(`<main><header><div><p class="muted">مؤسسة الوتين الذكي</p><h1>الخدمات والأسعار</h1></div><div class="tools"><a class="button secondary" href="/" target="_blank" rel="noopener">عرض الموقع ↗</a><form method="post" action="/admin/logout"><button class="secondary">تسجيل الخروج</button></form></div></header><p class="notice">عدّل الأسعار ثم اضغط «حفظ ونشر». تُحفظ الخدمات في ملف Excel خاص، وتظهر الأسعار الجديدة للعملاء عند تحميل الموقع.</p><p id="status" role="status" aria-live="polite"></p><section><div class="bar"><div class="tools"><a class="button secondary" href="/admin/download">تنزيل ملف Excel للتعديل ↓</a><label class="button secondary">رفع ملف Excel<input id="upload" type="file" accept=".xlsx" hidden></label></div><button id="save" disabled>حفظ ونشر التغييرات</button></div><p class="muted">عند تعديل Excel: حافظ على عناوين الأعمدة والأقسام، واترك رمز الخدمة فارغًا للخدمات الجديدة. لا يُنشر الملف المرفوع قبل المراجعة والحفظ.</p><p id="summary"></p></section><section><div class="bar"><label>القسم<select id="category"></select></label><label>بحث<input type="search" id="search" placeholder="اسم الخدمة"></label></div><div class="scroll"><table><thead><tr><th>الخدمة</th><th>السعر من</th><th>السعر إلى</th><th>مفعلة</th><th>حذف</th></tr></thead><tbody id="rows"></tbody></table></div></section><section><h2>إضافة خدمة للقسم المحدد</h2><form id="add-form"><label>اسم الخدمة<input id="new-name" required maxlength="250"></label><label>السعر من<input id="new-min" type="number" min="0" max="9999999.99" step="0.01" required></label><label>السعر إلى<input id="new-max" type="number" min="0" max="9999999.99" step="0.01"></label><button>إضافة الخدمة</button></form></section></main>`,true);
+
+function client(){
+  'use strict';
+  const $=id=>document.getElementById(id);let catalog=[],original=[],version='',dirty=false,busy=false;
+  const say=text=>{$('status').textContent=text;};
+  async function api(path,options={}){
+    const response=await fetch(path,{...options,headers:{'X-Requested-With':'office-admin',...options.headers},cache:'no-store'});
+    if(response.status===401){location.href='/admin/login';throw Error('انتهت جلسة الدخول.');}
+    const value=await response.json();if(!response.ok)throw Error(value.error||'تعذر إكمال العملية.');return value;
+  }
+  function summary(){
+    const before=new Map(original.flatMap(c=>c.rows).map(r=>[r.id,r]));const after=catalog.flatMap(c=>c.rows),ids=new Set(after.map(r=>r.id));
+    const added=after.filter(r=>!before.has(r.id)).length,deleted=[...before.keys()].filter(id=>!ids.has(id)).length;
+    const changed=after.filter(r=>before.has(r.id)&&JSON.stringify(r)!==JSON.stringify(before.get(r.id))).length;
+    $('summary').textContent=`${after.length} خدمة • ${added} مضافة • ${changed} معدّلة • ${deleted} محذوفة`;
+    return {added,deleted,changed};
+  }
+  function mark(){dirty=true;$('save').disabled=false;summary();}
+  function cell(row,element){const td=document.createElement('td');td.append(element);row.append(td);}
+  function render(){
+    const category=catalog.find(c=>c.id===$('category').value);$('rows').replaceChildren();if(!category)return;
+    const query=$('search').value.trim();
+    for(const row of category.rows.filter(r=>r.name.includes(query))){
+      const tr=document.createElement('tr'),name=document.createElement('input');name.type='text';name.value=row.name;name.maxLength=250;name.setAttribute('aria-label','اسم الخدمة');name.oninput=()=>{row.name=name.value;mark();};cell(tr,name);
+      const parts=row.price.split('–'),min=document.createElement('input'),max=document.createElement('input');
+      [min,max].forEach(input=>{input.type='number';input.min='0';input.max='9999999.99';input.step='0.01';input.required=true;});min.value=parts[0];max.value=parts[1]||parts[0];min.setAttribute('aria-label','السعر من');max.setAttribute('aria-label','السعر إلى');
+      const update=()=>{row.price=min.value===max.value?min.value:min.value+'–'+max.value;mark();};min.oninput=update;max.oninput=update;cell(tr,min);cell(tr,max);
+      const enabled=document.createElement('input');enabled.type='checkbox';enabled.checked=row.enabled!==false;enabled.setAttribute('aria-label','تفعيل الخدمة');enabled.onchange=()=>{row.enabled=enabled.checked;mark();};cell(tr,enabled);
+      const remove=document.createElement('button');remove.textContent='حذف';remove.className='danger';remove.onclick=()=>{if(confirm('حذف الخدمة «'+row.name+'»؟ لن يتم النشر إلا بعد الحفظ.')){category.rows=category.rows.filter(r=>r.id!==row.id);mark();render();}};cell(tr,remove);$('rows').append(tr);
+    }
+    summary();
+  }
+  function selectCategories(){const selected=$('category').value;$('category').replaceChildren();for(const c of catalog){const o=document.createElement('option');o.value=c.id;o.textContent=c.title;$('category').append(o);}if(catalog.some(c=>c.id===selected))$('category').value=selected;render();}
+  function lock(value){busy=value;document.querySelectorAll('button,input,select').forEach(el=>el.disabled=value);$('save').disabled=value||!dirty;}
+  $('category').onchange=render;$('search').oninput=render;
+  $('add-form').onsubmit=e=>{e.preventDefault();if(busy)return;const min=$('new-min').value,max=$('new-max').value||min;if(Number(max)<Number(min)){say('السعر الأعلى يجب ألا يقل عن الأدنى.');return;}catalog.find(c=>c.id===$('category').value).rows.push({id:crypto.randomUUID(),name:$('new-name').value.trim(),price:min===max?min:min+'–'+max,enabled:true});e.target.reset();mark();render();};
+  $('save').onclick=async()=>{if(busy)return;const changes=summary();if(!confirm(`نشر التغييرات للعملاء؟\n${changes.added} مضافة، ${changes.changed} معدلة، ${changes.deleted} محذوفة.`))return;lock(true);say('جارٍ حفظ ملف Excel…');try{const data=await api('/admin/catalog',{method:'PUT',headers:{'Content-Type':'application/json','If-Match':version},body:JSON.stringify({services:catalog})});catalog=data.services;original=structuredClone(catalog);version=data.version;dirty=false;render();say('تم الحفظ والنشر بنجاح. الأسعار الجديدة متاحة للعملاء الآن.');}catch(e){say(e.message);}finally{lock(false);}};
+  $('upload').onchange=async()=>{const file=$('upload').files[0];if(!file)return;if(file.size>512*1024){say('حجم الملف يجب ألا يتجاوز 512 كيلوبايت.');return;}if(dirty&&!confirm('استبدال التغييرات غير المحفوظة بمحتويات Excel؟'))return;lock(true);say('جارٍ فحص الملف…');try{const data=await api('/admin/preview',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:file});catalog=data.services;mark();selectCategories();say('تم تحميل الملف للمراجعة فقط. راجع ملخص الحذف والتعديل ثم اضغط حفظ ونشر.');}catch(e){say(e.message);}finally{$('upload').value='';lock(false);}};
+  addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
+  lock(true);api('/admin/catalog').then(data=>{catalog=data.services;original=structuredClone(catalog);version=data.version;selectCategories();say('');}).catch(e=>say(e.message)).finally(()=>lock(false));
+}
+export const adminScript=`(${client.toString()})();`;
