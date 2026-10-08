@@ -1,8 +1,0 @@
-.private/
-backups/
-*.tmp
-node_modules/
-.wrangler/
-.dev.vars*
-.env*
-deploy/
