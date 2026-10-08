@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>دخول الإدارة — الوتين الذكي</title><link rel="stylesheet" href="/assets/css/styles.css"></head>
+<body style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#102d36">
+<main style="width:100%;max-width:460px;background:white;border-radius:24px;padding:32px">
+<img src="/assets/images/logo.jpeg" alt="مؤسسة الوتين الذكي" style="width:210px;margin:auto">
+<h1 style="font-size:27px;text-align:center;margin:15px 0">دخول إدارة المكتب</h1>
+<p id="login-error" role="alert" hidden style="color:#b42318">اسم المستخدم أو كلمة المرور غير صحيحة.</p>
+<form method="post" action="/login" class="service-admin-card">
+<label>اسم المستخدم<input name="username" autocomplete="username" required dir="ltr" value="admin"></label>
+<label>كلمة المرور<input name="password" type="password" autocomplete="current-password" required dir="ltr"></label>
+<button class="btn btn--solid" type="submit">دخول الإدارة</button>
+</form><a href="/" style="display:block;text-align:center;margin-top:20px;color:#08785c">العودة إلى موقع العملاء</a>
+<script>document.getElementById('login-error').hidden=!new URLSearchParams(location.search).has('error');</script>
+</main></body></html>
